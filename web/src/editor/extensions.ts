@@ -7,6 +7,7 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import { makeId, type CodexMatcher } from '@novelmaker/shared';
 import { BeatView } from './BeatView';
 import { FrameView } from './FrameView';
+import { NoteView } from './NoteView';
 import { locale, N_, t } from '../lib/i18n';
 
 declare module '@tiptap/core' {
@@ -171,7 +172,18 @@ export const HiddenNote = Node.create({
     return [{ tag: 'div[data-type="note"]' }];
   },
   renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'note', class: 'note-node' }), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        'data-type': 'note',
+        class: 'note-node',
+        'data-label': t('Note · not part of the manuscript'),
+      }),
+      0,
+    ];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(NoteView);
   },
 });
 
