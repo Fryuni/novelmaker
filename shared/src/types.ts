@@ -522,6 +522,8 @@ export interface GenerateRequest {
   message?: string;
   textBefore?: string;
   textAfter?: string;
+  /** Texte der Beats, die in der Szene nach dem Beat bzw. Cursor folgen */
+  beatsAfter?: string[];
   selection?: string;
   /** Ungespeicherter Szenentext */
   sceneText?: string;

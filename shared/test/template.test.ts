@@ -31,6 +31,14 @@ describe('Parser', () => {
 });
 
 describe('Auswertung', () => {
+  it('folgende Beats: beatsAfter, beatsAfter(n), nextBeat', () => {
+    const data = testData({ beatsAfter: ['Aurica in der Umkleide.', 'Visite.\nMit Fabian.'] });
+    expect(out('{beatsAfter}', data)).toBe('- Aurica in der Umkleide.\n- Visite.\n  Mit Fabian.');
+    expect(out('{beatsAfter(1)}', data)).toBe('- Aurica in der Umkleide.');
+    expect(out('{nextBeat}', data)).toBe('Aurica in der Umkleide.');
+    expect(out('{#if beatsAfter}ja{#else}nein{#endif}')).toBe('nein');
+    expect(out('{nextBeat}')).toBe('');
+  });
   it('Roman-Felder', () => {
     expect(out('{novel.title} – {novel.tense} – {novel.language}')).toBe('Testroman – past tense – German');
   });

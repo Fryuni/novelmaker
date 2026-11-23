@@ -24,6 +24,7 @@ import {
   t,
   toNcPrompt,
   toNovelmakerNames,
+  type BlockKind,
   type BlockPromptSpec,
   type Lang,
   type Prompt,
@@ -382,6 +383,42 @@ function upgradeLegacyBuiltins(db: DB) {
   }
 }
 
+/** Gleicher Inhalt, unabhängig von der Reihenfolge der Schlüssel. */
+function sameValue(a: unknown, b: unknown): boolean {
+  const canon = (v: unknown): unknown =>
+    Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon((v as Record<string, unknown>)[k])])) : v;
+  return JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+}
+
+/**
+ * Neue Bausteine in unveränderte mitgelieferte Baustein-Prompts übernehmen: Fehlen einer Fassung nur Bausteine, die es
+ * beim Anlegen noch nicht gab, und stimmt alles andere mit der mitgelieferten Fassung überein, wird sie aktualisiert.
+ * Selbst geänderte Prompts bleiben, wie sie sind – dort ist der neue Baustein aus und lässt sich anhaken.
+ */
+function addNewBuiltinBlocks(db: DB) {
+  const rows = db.prepare('SELECT id, type, builtin_key FROM prompts WHERE builtin_key IS NOT NULL').all() as Row[];
+  const texts = loadTexts(db);
+  for (const r of rows) {
+    for (const [lang, tx] of texts.get(r.id) ?? []) {
+      const cur = builtinPrompt(r.builtin_key, lang)?.blocks;
+      const spec = parseJson<BlockPromptSpec | null>(tx.blocks, null);
+      if (!cur || !spec?.blocks || builtinType(r.builtin_key) !== r.type) continue;
+      const kinds = Object.keys(cur.blocks) as BlockKind[];
+      const added = kinds.filter((k) => !(k in spec.blocks));
+      if (!added.some((k) => cur.blocks[k]?.on)) continue;
+      const unchanged =
+        spec.version === cur.version &&
+        spec.role === cur.role &&
+        spec.task === cur.task &&
+        sameValue(spec.options, cur.options) &&
+        Object.keys(spec.blocks).every((k) => sameValue(spec.blocks[k as BlockKind], cur.blocks[k as BlockKind]));
+      if (!unchanged) continue;
+      const c = compileBlockPrompt(cur, r.type, lang);
+      writeText(db, r.id, lang, { name: tx.name, description: tx.description, messages: c.messages, inputs: c.inputs, blocks: cur });
+    }
+  }
+}
+
 /**
  * Mitgelieferte Prompts anlegen, falls sie fehlen (vom Nutzer gelöschte nicht wieder), und fehlende
  * Sprachfassungen ergänzen (vom Nutzer gelöschte Fassungen ebenfalls nicht).
@@ -390,6 +427,7 @@ export function seedBuiltins(db: DB) {
   migrateComponentNames(db);
   retirePersonasComponent(db);
   upgradeLegacyBuiltins(db);
+  addNewBuiltinBlocks(db);
   const deleted = new Set(getSettingsValue<string[]>(db, 'deletedBuiltins', []));
   const deletedTexts = new Set(getSettingsValue<string[]>(db, 'deletedBuiltinTexts', []));
   const allTexts = loadTexts(db);

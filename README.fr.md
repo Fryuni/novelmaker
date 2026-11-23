@@ -263,7 +263,7 @@ Un prompt Novelmaker se compose de quatre parties (rôle et style, blocs de cont
 | Partie | Contenu |
 |---|---|
 | **Rôle et style** | Texte libre : qui est l’IA et comment elle doit écrire (« Tu es une éditrice honnête… », tout un guide de style, ce qu’il faut éviter). |
-| **Blocs de contexte** | Cochez ce que l’IA doit recevoir : les instructions supplémentaires du roman, les mots interdits (les alias d’une entrée du codex), les informations sur le roman, le codex, l’histoire jusqu’ici, le résumé de la scène, le contexte choisi à l’exécution, la fin de la scène précédente (*n* mots, éventuellement uniquement avec le même personnage POV), le texte avant le curseur (*n* mots, éventuellement comme modèle de style), le texte après le curseur, le texte sélectionné et, pour les résumés, le texte à résumer. Seuls les blocs adaptés au type de prompt sont proposés. |
+| **Blocs de contexte** | Cochez ce que l’IA doit recevoir : les instructions supplémentaires du roman, les mots interdits (les alias d’une entrée du codex), les informations sur le roman, le codex, l’histoire jusqu’ici, le résumé de la scène, le contexte choisi à l’exécution, la fin de la scène précédente (*n* mots, éventuellement uniquement avec le même personnage POV), le texte avant le curseur (*n* mots, éventuellement comme modèle de style), le texte après le curseur, les beats qui viennent plus tard dans la scène (pour que l’IA ne les anticipe pas), le texte sélectionné et, pour les résumés, le texte à résumer. Seuls les blocs adaptés au type de prompt sont proposés. |
 | **Tâche** | Texte libre : ce que l’IA doit faire (dans le chat : les règles pour les réponses). |
 | **Options** | Champs choisis à l’exécution, p. ex. *Mots : 200 / 400 / 600*. *Mots* limite aussi la longueur de la réponse ; *Longueur* fait de même pour les résumés. |
 
@@ -297,7 +297,7 @@ Les expressions peuvent s’étendre sur plusieurs lignes. Dans `#if`, une valeu
 | Scène | `scene`, `scene.title(scene?)`, `scene.summary(scene?)`, `scene.fullText(scene?)`, `scene.previous(scene?)`, `scene.next(scene?)`, `scene.number(scene?)`, `scene.labels(scene?)`, `scene.wordCount(scene?)`, `scene.chapter(scene?)`, `storySoFar`, `previousScenes(n)` |
 | Chapitre | `chapter`, `chapter.title(chapter?)`, `chapter.summary(chapter?)`, `chapter.fullText(chapter?)`, `chapter.number(chapter?)`, `chapter.scenes(chapter?)`, `chapter.sceneSummaries(chapter?)`, `chapter.previous(chapter?)`, `chapter.next(chapter?)` |
 | Acte | `act`, `act.title(act?)`, `act.summary(act?)`, `act.fullText(act?)`, `act.number(act?)`, `act.chapters(act?)` |
-| Texte | `message`, `textBefore`, `textAfter`, `wordsBefore(n)`, `wordsAfter(n)`, `isStartOfText`, `selection`, `lastWords(text, n)`, `firstWords(text, n)`, `wordCount(text)`, `upper`, `lower`, `trim` |
+| Texte | `message`, `textBefore`, `textAfter`, `wordsBefore(n)`, `wordsAfter(n)`, `beatsAfter(n?)`, `nextBeat`, `isStartOfText`, `selection`, `lastWords(text, n)`, `firstWords(text, n)`, `wordCount(text)`, `upper`, `lower`, `trim` |
 | Codex | `codex.context`, `codex.global`, `codex.mentioned`, `codex.get(name, …)`, `codex.aliases(name)`, `codex.name/description/type(entry)`, `codex.field(entry, key)`, `codex.characters`, `codex.locations`, `codex.objects`, `codex.lore`, `codex.subplots`, `codex.volumes`, `codex.all`, `codex.byTag(tag)` |
 | Extraits | `snippet.get(title)`, `snippet.text(snippet)` |
 | Composition | `include("Component")`, `input("Name")`, `local("name", value?)` |

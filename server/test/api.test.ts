@@ -220,6 +220,49 @@ describe('API', () => {
     expect(db.prepare("SELECT builtin_key, origin FROM prompts WHERE id = 'personas-own'").get()).toEqual({ builtin_key: null, origin: 'custom' });
   });
 
+  it('Beat-Vorschau: die folgenden Beats der Szene kommen in die Aufgabe', async () => {
+    const beat = (await api<Prompt[]>('GET', '/api/prompts')).find((p) => p.builtinKey === 'beat')!;
+    const sceneId = outline.acts[0].chapters[0].scenes[0].id;
+    const preview = await api('POST', '/api/preview', {
+      kind: 'beat',
+      promptId: beat.id,
+      novelId,
+      sceneId,
+      message: 'Aurica kommt im Krankenhaus an und trifft Fabian.',
+      textBefore: '',
+      textAfter: '',
+      beatsAfter: ['Aurica in der Umkleide.', '  '],
+    });
+    const task = preview.messages[preview.messages.length - 1].content;
+    expect(task).toContain('Nimm nichts davon vorweg');
+    expect(task).toContain('<folgendeBeats>\n- Aurica in der Umkleide.\n</folgendeBeats>');
+  });
+
+  it('neue Bausteine kommen in unveränderte mitgelieferte Prompts, selbst geänderte bleiben', async () => {
+    const beat = (await api<Prompt[]>('GET', '/api/prompts')).find((p) => p.builtinKey === 'beat')!;
+    const stored = () => db.prepare("SELECT blocks, messages FROM prompt_texts WHERE prompt_id = ? AND lang = 'de'").get(beat.id) as { blocks: string; messages: string };
+    // Stand, bevor es den Baustein „Folgende Beats“ gab
+    const before = (task?: string) => {
+      const spec = newBlockSpec('scene-beat-completion', 'de');
+      delete spec.blocks.beatsAfter;
+      if (task) spec.task = task;
+      db.prepare("UPDATE prompt_texts SET blocks = ?, messages = '[]' WHERE prompt_id = ? AND lang = 'de'").run(JSON.stringify(spec), beat.id);
+    };
+    before();
+    seedBuiltins(db);
+    expect(JSON.parse(stored().blocks).blocks.beatsAfter).toEqual({ on: true, beats: 0 });
+    expect(stored().messages).toContain('folgendeBeats');
+
+    before('Schreib, was im Beat steht: {{Beat}}');
+    seedBuiltins(db);
+    expect(JSON.parse(stored().blocks).blocks.beatsAfter).toBeUndefined();
+    expect(stored().messages).toBe('[]');
+
+    before();
+    seedBuiltins(db);
+    expect(stored().messages).toContain('folgendeBeats');
+  });
+
   it('Kodex: Band-Kopien von Serien-Einträgen – Band-Fassung gilt, Doppel zusammenführen', async () => {
     const n1 = await api('POST', '/api/novels', { title: 'Serie-Doppel 1' });
     const anna = await api('POST', `/api/novels/${n1.id}/codex`, { name: 'Anna', description: 'Lehrerin', aliases: ['Annie'] });

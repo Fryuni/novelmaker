@@ -263,7 +263,7 @@ npm start          # сервер + інтерфейс на http://localhost:300
 | Частина | Вміст |
 |---|---|
 | **Роль і стиль** | Вільний текст: хто такий ШІ і як він має писати («Ти – чесна редакторка …», цілий посібник зі стилю, чого слід уникати). |
-| **Блоки контексту** | Позначте, що має отримати ШІ: додаткові інструкції роману, заборонені слова (псевдоніми запису кодексу), інформацію про роман, кодекс, попередні події, підсумок сцени, контекст, вибраний під час запуску, кінець попередньої сцени (*n* слів, за бажанням лише за того самого POV-персонажа), текст перед курсором (*n* слів, за бажанням як зразок стилю), текст після курсора, виділений текст, а для підсумків – текст для підсумовування. Пропонуються лише ті блоки, які пасують до типу промпту. |
+| **Блоки контексту** | Позначте, що має отримати ШІ: додаткові інструкції роману, заборонені слова (псевдоніми запису кодексу), інформацію про роман, кодекс, попередні події, підсумок сцени, контекст, вибраний під час запуску, кінець попередньої сцени (*n* слів, за бажанням лише за того самого POV-персонажа), текст перед курсором (*n* слів, за бажанням як зразок стилю), текст після курсора, біти, що йдуть далі в сцені (щоб ШІ їх не передбачав), виділений текст, а для підсумків – текст для підсумовування. Пропонуються лише ті блоки, які пасують до типу промпту. |
 | **Завдання** | Вільний текст: що має зробити ШІ (у чаті – правила для відповідей). |
 | **Поля вибору** | Поля, значення яких вибирають під час запуску, напр. *Слова: 200 / 400 / 600*. *Слова* також обмежує довжину відповіді; *Довжина* робить те саме для підсумків. |
 
@@ -297,7 +297,7 @@ npm start          # сервер + інтерфейс на http://localhost:300
 | Сцена | `scene`, `scene.title(scene?)`, `scene.summary(scene?)`, `scene.fullText(scene?)`, `scene.previous(scene?)`, `scene.next(scene?)`, `scene.number(scene?)`, `scene.labels(scene?)`, `scene.wordCount(scene?)`, `scene.chapter(scene?)`, `storySoFar`, `previousScenes(n)` |
 | Розділ | `chapter`, `chapter.title(chapter?)`, `chapter.summary(chapter?)`, `chapter.fullText(chapter?)`, `chapter.number(chapter?)`, `chapter.scenes(chapter?)`, `chapter.sceneSummaries(chapter?)`, `chapter.previous(chapter?)`, `chapter.next(chapter?)` |
 | Акт | `act`, `act.title(act?)`, `act.summary(act?)`, `act.fullText(act?)`, `act.number(act?)`, `act.chapters(act?)` |
-| Текст | `message`, `textBefore`, `textAfter`, `wordsBefore(n)`, `wordsAfter(n)`, `isStartOfText`, `selection`, `lastWords(text, n)`, `firstWords(text, n)`, `wordCount(text)`, `upper`, `lower`, `trim` |
+| Текст | `message`, `textBefore`, `textAfter`, `wordsBefore(n)`, `wordsAfter(n)`, `beatsAfter(n?)`, `nextBeat`, `isStartOfText`, `selection`, `lastWords(text, n)`, `firstWords(text, n)`, `wordCount(text)`, `upper`, `lower`, `trim` |
 | Кодекс | `codex.context`, `codex.global`, `codex.mentioned`, `codex.get(name, …)`, `codex.aliases(name)`, `codex.name/description/type(entry)`, `codex.field(entry, key)`, `codex.characters`, `codex.locations`, `codex.objects`, `codex.lore`, `codex.subplots`, `codex.volumes`, `codex.all`, `codex.byTag(tag)` |
 | Нотатки | `snippet.get(title)`, `snippet.text(snippet)` |
 | Композиція | `include("Component")`, `input("Name")`, `local("name", value?)` |

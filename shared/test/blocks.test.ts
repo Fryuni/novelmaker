@@ -89,6 +89,26 @@ describe('Baustein-Prompts', () => {
     expect(novel).toContain('<kapitel>');
   });
 
+  it('folgende Beats: im Beat-Prompt an, kommen in die Aufgabe; ohne folgende Beats fehlt der Abschnitt', () => {
+    expect(newBlockSpec('scene-beat-completion').blocks.beatsAfter).toMatchObject({ on: true, beats: 0 });
+    expect(newBlockSpec('continue-writing').blocks.beatsAfter?.on).toBe(false);
+    const beatsAfter = ['Carla geht zur Toilette.', 'Maria kommt zurück.'];
+    const { result } = render(newBlockSpec('scene-beat-completion'), 'scene-beat-completion', { beatsAfter });
+    expect(result.warnings).toEqual([]);
+    const task = result.messages[result.messages.length - 1].content;
+    expect(task).toContain('Nimm nichts davon vorweg');
+    expect(task).toContain('<folgendeBeats>\n- Carla geht zur Toilette.\n- Maria kommt zurück.\n</folgendeBeats>');
+    const none = render(newBlockSpec('scene-beat-completion'), 'scene-beat-completion').result.messages.map((m) => m.content).join('\n');
+    expect(none).not.toContain('folgendeBeats');
+    expect(none).not.toContain('vorweg');
+    // nur der nächste Beat
+    const spec = newBlockSpec('scene-beat-completion');
+    spec.blocks.beatsAfter = { on: true, beats: 1 };
+    const one = render(spec, 'scene-beat-completion', { beatsAfter }).result.messages.map((m) => m.content).join('\n');
+    expect(one).toContain('- Carla geht zur Toilette.');
+    expect(one).not.toContain('Maria kommt zurück.');
+  });
+
   it('Typwechsel: neu passende Bausteine bekommen Standardwerte', () => {
     const spec = retypeSpec(newBlockSpec('workshop-chat'), 'workshop-chat', 'text-replacement');
     expect(spec.blocks.selection?.on).toBe(true);
@@ -112,6 +132,17 @@ describe('Baustein-Prompts', () => {
 });
 
 describe('Importierte Prompts in Bausteine umwandeln', () => {
+  it('beatsAfter in Skript-Prompts wird zum Baustein „Folgende Beats“', () => {
+    const r = convertToBlocks({
+      type: 'scene-beat-completion',
+      inputs: [],
+      messages: [{ type: 'user', text: 'Schreibe: {message}\n{#if beatsAfter(2)}\nDanach kommt:\n{beatsAfter(2)}\n{#endif}' }],
+    });
+    if (!r.ok) throw new Error(r.errors.join('\n'));
+    expect(r.spec.blocks.beatsAfter).toMatchObject({ on: true, beats: 2 });
+    expect(r.spec.task).toBe('Schreibe: {{Beat}}');
+  });
+
   it('der Novelcrafter-Beat-Prompt wird vollständig erkannt', () => {
     const { prompt } = parseNcPrompt(JSON.parse(sample('beat-prompt.json')));
     const r = convertToBlocks(prompt);

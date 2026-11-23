@@ -43,6 +43,7 @@ export type BlockKind =
   | 'previousSceneEnd'
   | 'textBefore'
   | 'textAfter'
+  | 'beatsAfter'
   | 'selection';
 
 export interface BlockConfig {
@@ -55,6 +56,8 @@ export interface BlockConfig {
   samePov?: boolean;
   /** Name des Kodex-Eintrags, dessen Aliase verboten sind */
   entry?: string;
+  /** Anzahl der folgenden Beats; 0 = alle */
+  beats?: number;
 }
 
 export interface PromptOption {
@@ -89,7 +92,7 @@ export interface BlockDef {
   hint: string;
   group: 'instructions' | 'context' | 'text';
   types: PromptType[];
-  params?: ('words' | 'asExample' | 'samePov' | 'entry')[];
+  params?: ('words' | 'asExample' | 'samePov' | 'entry' | 'beats')[];
   /** Standard je Prompt-Typ für neue Prompts */
   defaults: (type: PromptType) => BlockConfig;
 }
@@ -188,6 +191,15 @@ export const BLOCK_DEFS: BlockDef[] = [
     types: [BEAT, CONT, EDIT],
     params: ['words'],
     defaults: (t) => on(t !== CONT, { words: t === EDIT ? 150 : 250 }),
+  },
+  {
+    kind: 'beatsAfter',
+    label: N_('Following beats'),
+    hint: N_('The beats that come later in the scene — the AI doesn’t anticipate them and ends so that the next beat can follow on seamlessly.'),
+    group: 'text',
+    types: [BEAT, CONT],
+    params: ['beats'],
+    defaults: (t) => on(t === BEAT, { beats: 0 }),
   },
   {
     kind: 'selection',
@@ -460,6 +472,11 @@ export function compileBlockPrompt(spec: BlockPromptSpec, type: PromptType, lang
     const e = after.words && after.words > 0 ? `wordsAfter(${Math.round(after.words)})` : 'textAfter';
     task.push(`{#if ${e}}\n${isEdit ? F.afterEdit : F.afterWrite}:\n${tag(F.tagAfter, `{${e}}`)}\n{#endif}`);
   }
+  const later = b('beatsAfter');
+  if (later) {
+    const e = later.beats && later.beats > 0 ? `beatsAfter(${Math.round(later.beats)})` : 'beatsAfter';
+    task.push(`{#if ${e}}\n${F.beatsAfter}\n${tag(F.tagBeatsAfter, `{${e}}`)}\n{#endif}`);
+  }
   if (type === EDIT && !b('selection')) warnings.push(t('“Selected text” is off — the AI won’t receive the passage to edit.'));
 
   const role = compileText(spec.role, options, warnings);
@@ -541,6 +558,10 @@ export function convertToBlocks(prompt: { type: PromptType; messages: PromptMess
     );
     take(/\{\s*wordsAfter\(\s*(\d+)\s*\)\s*\}/gi, (n) => set('textAfter', { words: Number(n) }));
     take(/\{\s*textAfter\s*\}/gi, () => set('textAfter', { words: 0 }));
+    take(/\{#if\s+beatsAfter(?:\(\s*(\d+)\s*\))?\s*\}[\s\S]*?\{\s*beatsAfter(?:\(\s*\d+\s*\))?\s*\}[\s\S]*?\{#endif\s*\}/gi, (n) =>
+      set('beatsAfter', { beats: n ? Number(n) : 0 }),
+    );
+    take(/\{\s*beatsAfter(?:\(\s*(\d+)\s*\))?\s*\}/gi, (n) => set('beatsAfter', { beats: n ? Number(n) : 0 }));
     take(/\{#if\s+(?:textBefore|wordsBefore\(\s*\d+\s*\))\s*\}[\s\S]*?\{\s*(?:wordsBefore\(\s*(\d+)\s*\)|textBefore)\s*\}[\s\S]*?\{#endif\s*\}/gi, (n) =>
       set('textBefore', { words: n ? Number(n) : 0, asExample: m.type === 'assistant' }),
     );

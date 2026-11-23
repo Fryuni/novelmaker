@@ -66,6 +66,9 @@ export interface Framing {
   afterEdit: string;
   afterWrite: string;
   tagAfter: string;
+  /** Beats, die später in der Szene folgen: nicht vorwegnehmen, Anschluss ermöglichen */
+  beatsAfter: string;
+  tagBeatsAfter: string;
   /** Anführungszeichen um Titel */
   q: [string, string];
   /** Beschreibung und Anzeigename der Kontextauswahl */
@@ -104,6 +107,9 @@ export const FRAMING: L<Framing> = {
     afterEdit: 'Text nach der Textstelle (nur zum Verständnis, nicht zurückgeben)',
     afterWrite: 'Danach geht die Szene so weiter – steuere darauf hin, wiederhole es aber nicht',
     tagAfter: 'textDanach',
+    beatsAfter:
+      'Diese Beats folgen später in der Szene und werden separat geschrieben. Nimm nichts davon vorweg – keine Handlung, keinen Ortswechsel und keine Veränderung (z. B. Kleidung, Aufenthaltsort, Wissen der Figuren), die erst dort geschieht. Beende deinen Text so, dass der nächste Beat nahtlos anschließen kann:',
+    tagBeatsAfter: 'folgendeBeats',
     q: ['„', '“'],
     contextDesc: 'Zusätzlicher Kontext: Akte, Kapitel, Szenen, Kodex-Einträge, Snippets oder der ganze Roman',
     contextLabel: 'Kontext',
@@ -137,6 +143,9 @@ export const FRAMING: L<Framing> = {
     afterEdit: 'Text after the passage (for context only, do not return it)',
     afterWrite: 'After this, the scene continues like this – steer towards it, but do not repeat it',
     tagAfter: 'textAfter',
+    beatsAfter:
+      'These beats come later in the scene and will be written separately. Do not anticipate any of them – no action, change of location or other change (e.g. clothing, whereabouts, what the characters know) that only happens there. End your text so that the next beat can follow on seamlessly:',
+    tagBeatsAfter: 'laterBeats',
     q: ['"', '"'],
     contextDesc: 'Additional context: acts, chapters, scenes, codex entries, snippets or the whole novel',
     contextLabel: 'Context',
@@ -170,6 +179,9 @@ export const FRAMING: L<Framing> = {
     afterEdit: 'Texto después del fragmento (solo como contexto, no lo devuelvas)',
     afterWrite: 'Después, la escena continúa así: encamina el texto hacia ello, pero no lo repitas',
     tagAfter: 'textAfter',
+    beatsAfter:
+      'Estos beats llegan más adelante en la escena y se escribirán por separado. No anticipes nada de ellos: ninguna acción, cambio de lugar ni otro cambio (p. ej. ropa, paradero, lo que saben los personajes) que solo ocurra allí. Termina tu texto de forma que el siguiente beat pueda continuar sin costuras:',
+    tagBeatsAfter: 'laterBeats',
     q: ['«', '»'],
     contextDesc: 'Contexto adicional: actos, capítulos, escenas, entradas del códice, fragmentos o la novela completa',
     contextLabel: 'Contexto',
@@ -203,6 +215,9 @@ export const FRAMING: L<Framing> = {
     afterEdit: 'Текст після фрагмента (лише для розуміння, не повертай його)',
     afterWrite: 'Далі сцена продовжується так – підведи до цього, але не повторюй',
     tagAfter: 'textAfter',
+    beatsAfter:
+      'Ці біти йдуть далі в сцені й будуть написані окремо. Нічого з них не передбачай – жодної дії, зміни місця чи іншої зміни (наприклад, одягу, місцеперебування, того, що знають персонажі), яка відбувається лише там. Закінчи свій текст так, щоб наступний біт міг плавно продовжити його:',
+    tagBeatsAfter: 'laterBeats',
     q: ['«', '»'],
     contextDesc: 'Додатковий контекст: акти, розділи, сцени, записи кодексу, нотатки або весь роман',
     contextLabel: 'Контекст',
@@ -236,6 +251,9 @@ export const FRAMING: L<Framing> = {
     afterEdit: 'Testo dopo il passaggio (solo per contesto, non restituirlo)',
     afterWrite: 'Poi la scena continua così: conduci la storia in quella direzione, ma non ripeterlo',
     tagAfter: 'textAfter',
+    beatsAfter:
+      'Questi beat arrivano più avanti nella scena e verranno scritti separatamente. Non anticipare nulla di essi: nessuna azione, cambio di luogo o altro cambiamento (ad es. abiti, posizione, ciò che sanno i personaggi) che avviene solo lì. Concludi il tuo testo in modo che il beat successivo possa riprenderlo senza stacchi:',
+    tagBeatsAfter: 'laterBeats',
     q: ['«', '»'],
     contextDesc: 'Contesto aggiuntivo: atti, capitoli, scene, voci del codex, snippet o l’intero romanzo',
     contextLabel: 'Contesto',
@@ -269,6 +287,9 @@ export const FRAMING: L<Framing> = {
     afterEdit: 'Texte suivant le passage (uniquement pour le contexte, ne le renvoie pas)',
     afterWrite: 'Ensuite, la scène se poursuit ainsi – oriente le récit dans cette direction, mais ne le répète pas',
     tagAfter: 'textAfter',
+    beatsAfter:
+      'Ces beats viennent plus tard dans la scène et seront écrits séparément. N’en anticipe rien : aucune action, aucun changement de lieu ni autre changement (p. ex. vêtements, endroit où se trouvent les personnages, ce qu’ils savent) qui ne se produit que là. Termine ton texte de façon à ce que le beat suivant puisse s’y enchaîner naturellement :',
+    tagBeatsAfter: 'laterBeats',
     q: ['« ', ' »'],
     contextDesc: 'Contexte supplémentaire : actes, chapitres, scènes, entrées du codex, extraits ou le roman entier',
     contextLabel: 'Contexte',

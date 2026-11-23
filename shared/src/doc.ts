@@ -354,3 +354,19 @@ export function findBeats(doc: PMDoc): { index: number; id: string; text: string
 export function nodeText(node: PMNode): string {
   return inlineText(node);
 }
+
+/** Texte aller Beats in Dokumentreihenfolge (auch in Rahmen, nicht in ausgeblendeten); leere Beats fallen weg. */
+export function beatTexts(nodes: PMNode[] | undefined): string[] {
+  const out: string[] = [];
+  const walk = (list: PMNode[] | undefined) => {
+    for (const n of list ?? []) {
+      if (n.type === BEAT_NODE) {
+        const text = inlineText(n).trim();
+        if (text) out.push(text);
+      } else if (n.type === NOTE_NODE || isExcludedFrame(n)) continue;
+      else walk(n.content);
+    }
+  };
+  walk(nodes);
+  return out;
+}

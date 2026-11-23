@@ -23,7 +23,7 @@ import { patchSettings, usePrompts } from '../lib/queries';
 import { toast, useGen } from '../lib/store';
 import { BEAT_GENERATE_EVENT, frameStamp } from './extensions';
 import { t, tn } from '../lib/i18n';
-import { fullText, snapshotBeforeAI, stashInFrame, textAfterPos, textBeforePos, useSceneScope } from './scope';
+import { beatsAfterPos, fullText, snapshotBeforeAI, stashInFrame, textAfterPos, textBeforePos, useSceneScope } from './scope';
 
 export function BeatView({ node, getPos, editor, deleteNode }: NodeViewProps) {
   const { novelId, sceneId } = useSceneScope();
@@ -56,6 +56,7 @@ export function BeatView({ node, getPos, editor, deleteNode }: NodeViewProps) {
       message: nodeText((current ?? node).toJSON() as PMNode).trim(),
       textBefore: textBeforePos(editor, pos),
       textAfter: textAfterPos(editor, pos + size),
+      beatsAfter: beatsAfterPos(editor, pos + size),
       sceneText: fullText(editor),
       inputs,
     };

@@ -212,6 +212,19 @@ function BlockRow({ def, config, onChange }: { def: BlockDef; config: BlockConfi
               {def.kind !== 'previousSceneEnd' && (config.words ?? 0) === 0 ? t('Words (all)') : t('Words')}
             </span>
           )}
+          {params.includes('beats') && (
+            <span className={small} title={t('0 = all')}>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={config.beats ?? 0}
+                onChange={(e) => onChange({ beats: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+                className="h-7 w-16 text-right text-[13px]"
+              />
+              {(config.beats ?? 0) === 0 ? t('Beats (all)') : t('Beats')}
+            </span>
+          )}
           {params.includes('asExample') && (
             <label className={cn(small, 'cursor-pointer')} title={t('The AI receives the text as if it had written it itself, and so adopts its style.')}>
               <input type="checkbox" className="size-3.5 accent-amber-700" checked={!!config.asExample} onChange={(e) => onChange({ asExample: e.target.checked })} />

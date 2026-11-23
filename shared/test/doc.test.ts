@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countWords, docToHtml, docToMarkdown, docToPlainText, frameNode, type PMDoc } from '../src';
+import { beatTexts, countWords, docToHtml, docToMarkdown, docToPlainText, frameNode, type PMDoc } from '../src';
 import { setLang } from '../src/i18n';
 
 const para = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
@@ -56,5 +56,22 @@ describe('Versteckte Notiz', () => {
       setLang('de');
     }
     expect(docToHtml(doc)).toContain('Später prüfen.');
+  });
+});
+
+describe('Beats', () => {
+  const beat = (text: string) => ({ type: 'beat', attrs: { id: text }, content: text ? [{ type: 'text', text }] : [] });
+  it('beatTexts: Reihenfolge, eingeblendete Rahmen ja, ausgeblendete und leere nein', () => {
+    const nodes = [
+      para('Aurica kommt im Krankenhaus an.'),
+      beat('Aurica trifft Fabian.'),
+      { type: 'frame', attrs: { title: 'Variante', excluded: true }, content: [beat('Verworfener Beat')] },
+      { type: 'hiddenNote', content: [{ type: 'text', text: 'Notiz' }] },
+      beat('  '),
+      { type: 'frame', attrs: { title: 'Plan', excluded: false }, content: [beat('Aurica in der Umkleide.')] },
+      beat('Schichtbeginn.'),
+    ];
+    expect(beatTexts(nodes)).toEqual(['Aurica trifft Fabian.', 'Aurica in der Umkleide.', 'Schichtbeginn.']);
+    expect(beatTexts(undefined)).toEqual([]);
   });
 });

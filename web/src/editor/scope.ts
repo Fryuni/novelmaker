@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import { create } from 'zustand';
 import type { Editor } from '@tiptap/core';
-import { docToPlainText, frameNode, textToNodes, inlineMarkdown, type PMDoc, type PMNode } from '@novelmaker/shared';
+import { beatTexts, docToPlainText, frameNode, textToNodes, inlineMarkdown, type PMDoc, type PMNode } from '@novelmaker/shared';
 import { api } from '../lib/api';
 import { keys, pendingSaves, queryClient, type Manuscript } from '../lib/queries';
 import type { Outline, SceneMeta } from '@novelmaker/shared';
@@ -159,6 +159,10 @@ export function textBeforePos(editor: Editor, pos: number): string {
 }
 export function textAfterPos(editor: Editor, pos: number): string {
   return docToPlainText(editor.state.doc.cut(pos).toJSON() as PMDoc);
+}
+/** Texte der Beats hinter einer Position (ohne ausgeblendete Rahmen). */
+export function beatsAfterPos(editor: Editor, pos: number): string[] {
+  return beatTexts((editor.state.doc.cut(pos).toJSON() as PMDoc).content);
 }
 export function fullText(editor: Editor): string {
   return docToPlainText(editor.getJSON() as PMDoc);

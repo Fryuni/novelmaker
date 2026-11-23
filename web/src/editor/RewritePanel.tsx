@@ -24,7 +24,7 @@ import { patchSettings, usePrompts } from '../lib/queries';
 import { toast, useGen } from '../lib/store';
 import { frameStamp } from './extensions';
 import { t } from '../lib/i18n';
-import { fullText, insertGeneratedAt, snapshotBeforeAI, stashInFrame, textAfterPos, textBeforePos } from './scope';
+import { beatsAfterPos, fullText, insertGeneratedAt, snapshotBeforeAI, stashInFrame, textAfterPos, textBeforePos } from './scope';
 
 // ---------------------------------------------------------------- Umschreiben / Kürzen / Erweitern
 
@@ -268,6 +268,7 @@ function ContinueInner({ target, onClose }: { target: ContinueTarget; onClose: (
       message: instruction,
       textBefore: textBeforePos(ed, target.pos),
       textAfter: textAfterPos(ed, target.pos),
+      beatsAfter: beatsAfterPos(ed, target.pos),
       sceneText: fullText(ed),
       inputs,
     };

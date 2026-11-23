@@ -58,6 +58,8 @@ export interface PromptData {
   /** null = keine Editor-Position (Chat usw.) */
   textBefore: string | null;
   textAfter: string | null;
+  /** Texte der Beats, die in der Szene danach folgen (in Reihenfolge) */
+  beatsAfter?: string[];
   selection: string;
   inputs: InputValues;
   pinnedCodexIds: string[];

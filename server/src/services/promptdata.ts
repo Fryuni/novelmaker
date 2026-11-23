@@ -71,6 +71,7 @@ export interface BuildDataInput {
   message?: string;
   textBefore?: string | null;
   textAfter?: string | null;
+  beatsAfter?: string[];
   selection?: string;
   sceneText?: string;
   inputs?: InputValues;
@@ -104,6 +105,7 @@ export function buildPromptData(db: DB, inp: BuildDataInput, components?: Prompt
     message: inp.message ?? '',
     textBefore: inp.textBefore ?? null,
     textAfter: inp.textAfter ?? null,
+    beatsAfter: (inp.beatsAfter ?? []).filter((b): b is string => typeof b === 'string' && !!b.trim()),
     selection: inp.selection ?? '',
     inputs,
     pinnedCodexIds: (inp.pinnedCodexIds ?? []).map((id) => r(id)!),
@@ -170,6 +172,7 @@ export function prepareRender(db: DB, req: GenerateRequest & { chapterId?: strin
       message: req.message,
       textBefore: isEditor ? (req.textBefore ?? '') : null,
       textAfter: isEditor ? (req.textAfter ?? '') : null,
+      beatsAfter: isEditor && Array.isArray(req.beatsAfter) ? req.beatsAfter : [],
       selection: req.selection,
       sceneText: req.sceneText,
       inputs,

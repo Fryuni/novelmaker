@@ -452,6 +452,28 @@ export const FUNCTIONS: FnDef[] = [
   },
   {
     group: N_('Text'),
+    name: 'beatsAfter',
+    sig: 'beatsAfter(n?)',
+    doc: N_('The beats that come later in the scene, as a list (n = only the next n)'),
+    types: EDITOR_TYPES,
+    fallback: '',
+    impl: (env, a) => {
+      const n = Math.max(0, Math.round(num(a[0], 0)));
+      const beats = env.data.beatsAfter ?? [];
+      return (n > 0 ? beats.slice(0, n) : beats).map((b) => `- ${b.replace(/\n/g, '\n  ')}`).join('\n');
+    },
+  },
+  {
+    group: N_('Text'),
+    name: 'nextBeat',
+    sig: 'nextBeat',
+    doc: N_('The next beat in the scene'),
+    types: EDITOR_TYPES,
+    fallback: '',
+    impl: (env) => env.data.beatsAfter?.[0] ?? '',
+  },
+  {
+    group: N_('Text'),
     name: 'isStartOfText',
     sig: 'isStartOfText',
     doc: N_('True if there’s no text in the scene before the beat/cursor yet'),
