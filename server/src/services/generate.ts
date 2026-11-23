@@ -20,15 +20,52 @@ import { getAppSettings } from '../repo/settings';
 import { streamChat, type StreamEvent } from '../llm/client';
 import { inputNumber, type Prepared } from './promptdata';
 
-export function buildParams(db: DB, model: ModelRef, prep: Prepared | null, override?: Record<string, unknown>): Record<string, unknown> {
+export interface GenerationParams {
+  /** geht so an den Anbieter */
+  params: Record<string, unknown>;
+  /** Obergrenze in Tokens nur für den sichtbaren Text; runGeneration setzt sie beim Streamen durch. null = keine */
+  outputLimit: number | null;
+}
+
+/**
+ * Request-Parameter bestimmen. Gibt weder die Modellsammlung noch der Aufruf max_tokens vor, ergibt sich aus
+ * „Words“ (bzw. `lengthNames`, z. B. für Zusammenfassungen) eine Grenze für den sichtbaren Text. Die setzt
+ * runGeneration selbst durch; an den Anbieter geht sie plus Reserve, weil viele Anbieter das Nachdenken von
+ * Reasoning-Modellen zu max_tokens zählen – sonst bricht die Antwort ab, bevor sichtbarer Text kommt.
+ */
+export function buildParams(
+  db: DB,
+  model: ModelRef,
+  prep: Prepared | null,
+  override?: Record<string, unknown>,
+  opts?: { lengthNames?: string[] },
+): GenerationParams {
   const params: Record<string, unknown> = { ...collectionParams(db, model.providerId, model.modelId), ...(override ?? {}) };
   const settings = getAppSettings(db);
-  if (prep && params.max_tokens == null && settings.deriveMaxTokens) {
-    const words = inputNumber(prep.prompt, prep.components, prep.inputs, WORDS_OPTION_NAMES);
-    if (words && words > 0) params.max_tokens = Math.round(words * settings.maxTokensFactor + settings.maxTokensBuffer);
+  let outputLimit: number | null = null;
+  if (prep && params.max_tokens == null) {
+    if (settings.deriveMaxTokens) {
+      const words = inputNumber(prep.prompt, prep.components, prep.inputs, WORDS_OPTION_NAMES);
+      if (words && words > 0) outputLimit = Math.round(words * settings.maxTokensFactor + settings.maxTokensBuffer);
+    }
+    if (outputLimit == null && opts?.lengthNames) {
+      const len = inputNumber(prep.prompt, prep.components, prep.inputs, opts.lengthNames);
+      if (len && len > 0) outputLimit = Math.round(len * 2 + 300);
+    }
+    if (outputLimit != null) params.max_tokens = providerMaxTokens(db, model, prep, outputLimit, settings.reasoningReserve);
   }
   for (const [k, v] of Object.entries(params)) if (v === '' || v === null) delete params[k];
-  return params;
+  return { params, outputLimit };
+}
+
+/** Sichtbare Grenze + Reserve fürs Nachdenken, soweit Modell (max. Antwortlänge) und Kontextfenster es zulassen. */
+function providerMaxTokens(db: DB, model: ModelRef, prep: Prepared, outputLimit: number, reserve: number): number {
+  let max = outputLimit + Math.max(0, Number(reserve) || 0);
+  const m = findModel(db, model.providerId, model.modelId);
+  if (m?.maxOutput) max = Math.min(max, m.maxOutput);
+  // Manche Anbieter lehnen ab, wenn Prompt + max_tokens nicht ins Kontextfenster passen (Prompt nur geschätzt, daher Abstand)
+  if (m?.contextLength) max = Math.min(max, Math.floor(m.contextLength * 0.95) - estimateMessagesTokens(prep.result.messages));
+  return Math.max(outputLimit, max);
 }
 
 export function estimateCost(db: DB, model: ModelRef, promptTokens: number, completionTokens: number): number | null {
@@ -129,6 +166,8 @@ export interface RunOptions {
   modelId: string;
   messages: RenderedMessage[];
   params: Record<string, unknown>;
+  /** Grenze für den sichtbaren Text (aus buildParams); das Nachdenken zählt nicht mit */
+  outputLimit?: number | null;
   log: { novelId: string | null; promptId: string | null; promptName: string; kind: string };
   signal: AbortSignal;
   onEvent?: (ev: StreamEvent) => void;
@@ -136,6 +175,8 @@ export interface RunOptions {
 
 export interface RunResult {
   text: string;
+  /** Nachdenken des Modells (nur zur Anzeige) */
+  reasoning: string;
   status: 'ok' | 'error' | 'aborted';
   error: string | null;
   logId: string;
@@ -150,6 +191,7 @@ export async function runGeneration(o: RunOptions): Promise<RunResult> {
   const started = Date.now();
   const logId = createLog(o.db, { ...o.log, providerId: o.provider.id, modelId: o.modelId, messages: o.messages, params: o.params });
   let text = '';
+  let reasoning = '';
   let promptTokens: number | null = null;
   let completionTokens: number | null = null;
   let cost: number | null = null;
@@ -159,12 +201,18 @@ export async function runGeneration(o: RunOptions): Promise<RunResult> {
   try {
     for await (const ev of streamChat({ provider: o.provider, model: o.modelId, messages: o.messages, params: o.params, signal: o.signal })) {
       if (ev.type === 'delta') text += ev.text;
+      else if (ev.type === 'reasoning') reasoning += ev.text;
       else if (ev.type === 'usage') {
         promptTokens = ev.promptTokens ?? promptTokens;
         completionTokens = ev.completionTokens ?? completionTokens;
         cost = ev.cost ?? cost;
       } else if (ev.type === 'finish') finish = ev.reason;
       o.onEvent?.(ev);
+      if (ev.type === 'delta' && o.outputLimit && estimateTokens(text) >= o.outputLimit) {
+        // Grenze für den sichtbaren Text erreicht: abbrechen (schließt die Verbindung zum Anbieter)
+        finish = 'length';
+        break;
+      }
     }
   } catch (e) {
     if (o.signal.aborted || (e as Error).name === 'AbortError') status = 'aborted';
@@ -173,12 +221,15 @@ export async function runGeneration(o: RunOptions): Promise<RunResult> {
       error = (e as Error).message;
     }
   }
+  // Der Anbieter hat bei max_tokens abgebrochen, bevor der sichtbare Text seine Grenze erreicht hat:
+  // Das Nachdenken hat die Reserve aufgebraucht.
+  if (finish === 'length' && o.outputLimit && estimateTokens(text) < o.outputLimit) finish = 'length-reasoning';
   const pt = promptTokens ?? estimateMessagesTokens(o.messages);
-  const ct = completionTokens ?? estimateTokens(text);
+  const ct = completionTokens ?? estimateTokens(text) + estimateTokens(reasoning);
   if (cost == null) cost = estimateCost(o.db, { providerId: o.provider.id, modelId: o.modelId }, pt, ct);
   const durationMs = Date.now() - started;
-  finishLog(o.db, logId, { response: text, promptTokens: pt, completionTokens: ct, cost, durationMs, status, error });
-  return { text, status, error, logId, promptTokens: pt, completionTokens: ct, cost, finish, durationMs };
+  finishLog(o.db, logId, { response: text, reasoning, promptTokens: pt, completionTokens: ct, cost, durationMs, status, error });
+  return { text, reasoning, status, error, logId, promptTokens: pt, completionTokens: ct, cost, finish, durationMs };
 }
 
 /** Server-Sent Events an den Browser. */

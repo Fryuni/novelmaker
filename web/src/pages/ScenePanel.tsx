@@ -9,6 +9,7 @@ import {
   ModelPicker,
   PreviewModal,
   PromptPicker,
+  ReasoningBox,
   useCostEstimate,
   useLastSelection,
   useTouched,
@@ -238,6 +239,7 @@ function SummaryGenerator({ novelId, sceneId, onAccept }: { novelId: string; sce
         <PromptPicker types={['summary']} value={promptId} onChange={setPromptId} className="max-w-full" />
         <ModelPicker value={model} onChange={setModel} />
       </div>
+      {gen && <ReasoningBox reasoning={gen.reasoning} text={gen.text} streaming={streaming} className="mt-2" />}
       {gen && <div className={cn('mt-2 text-[13px] whitespace-pre-wrap', streaming && 'stream-cursor')}>{gen.text}</div>}
       {gen?.error && <div className="mt-1 text-xs text-red-600">{gen.error}</div>}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">

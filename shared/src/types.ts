@@ -367,6 +367,8 @@ export interface ProviderModel {
   id: string;
   name?: string;
   contextLength?: number;
+  /** Höchstzahl an Antwort-Tokens laut Anbieter (OpenRouter: top_provider.max_completion_tokens) */
+  maxOutput?: number;
   /** Preis pro Token in USD */
   pricing?: { prompt: number; completion: number };
 }
@@ -438,6 +440,8 @@ export interface ChatMessage {
   createdAt: string;
   model: string | null;
   logId: string | null;
+  /** Nachdenken des Modells (nur Anzeige, geht nicht in den Verlauf für das Modell) */
+  reasoning: string;
 }
 
 export interface GenerationLog {
@@ -452,6 +456,8 @@ export interface GenerationLog {
   messages: RenderedMessage[];
   params: Record<string, unknown>;
   response: string;
+  /** Nachdenken des Modells, sofern der Anbieter es mitschickt */
+  reasoning: string;
   promptTokens: number | null;
   completionTokens: number | null;
   cost: number | null;
@@ -465,10 +471,17 @@ export interface AppSettings {
   language: Lang;
   theme: 'light' | 'dark' | 'system';
   defaultCollectionId: string | null;
-  /** max_tokens aus der Eingabe "Words" ableiten */
+  /** Obergrenze für die sichtbare Antwort aus der Eingabe "Words" ableiten (Wörter × Faktor + Puffer) */
   deriveMaxTokens: boolean;
   maxTokensFactor: number;
   maxTokensBuffer: number;
+  /**
+   * Kommt beim abgeleiteten max_tokens obendrauf: Reasoning-Modelle zählen ihr Nachdenken bei vielen Anbietern
+   * zu max_tokens. Die sichtbare Antwort wird trotzdem bei Wörter × Faktor + Puffer abgeschnitten (lokal).
+   */
+  reasoningReserve: number;
+  /** Nachdenken von Reasoning-Modellen in einem eigenen Kasten anzeigen (z. B. zur Fehlersuche; kommt nie in den Text) */
+  showReasoning: boolean;
   backupsToKeep: number;
   editorFontSize: number;
   editorWidth: number;
@@ -485,6 +498,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   deriveMaxTokens: true,
   maxTokensFactor: 2,
   maxTokensBuffer: 300,
+  reasoningReserve: 8000,
+  showReasoning: false,
   backupsToKeep: 10,
   editorFontSize: 18,
   editorWidth: 720,

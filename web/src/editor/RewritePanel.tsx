@@ -11,6 +11,7 @@ import {
   ModelPicker,
   PreviewButton,
   PromptPicker,
+  ReasoningBox,
   useCostEstimate,
   useLastSelection,
   useModelLabel,
@@ -168,6 +169,7 @@ function RewriteInner({ target, onClose }: { target: RewriteTarget; onClose: () 
         </div>
         <div>
           <div className="mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase">{t('After')}</div>
+          {gen && <ReasoningBox reasoning={gen.reasoning} text={gen.text} streaming={streaming} className="mb-2" />}
           <div
             className={cn(
               'max-h-[50vh] min-h-24 overflow-y-auto rounded-md border border-amber-200 bg-amber-50/50 p-3 font-serif text-[15px] leading-relaxed whitespace-pre-wrap dark:border-amber-900 dark:bg-amber-950/20',
@@ -317,6 +319,7 @@ function ContinueInner({ target, onClose }: { target: ContinueTarget; onClose: (
       </div>
       <div className="p-3">
         <Textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} rows={2} placeholder={t('Optional instruction (e.g. “Jack walks in”)…')} />
+        {gen && <ReasoningBox reasoning={gen.reasoning} text={gen.text} streaming={streaming} className="mt-2" />}
         {gen && (
           <div className={cn('mt-2 max-h-72 overflow-y-auto font-serif text-[15px] leading-relaxed whitespace-pre-wrap', streaming && 'stream-cursor')}>{gen.text}</div>
         )}

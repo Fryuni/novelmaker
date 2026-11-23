@@ -67,10 +67,12 @@ export async function fetchModels(p: Provider): Promise<ProviderModel[]> {
         m.pricing && (m.pricing.prompt != null || m.pricing.completion != null)
           ? { prompt: Number(m.pricing.prompt) || 0, completion: Number(m.pricing.completion) || 0 }
           : undefined;
+      const maxOutput = Number(m.top_provider?.max_completion_tokens);
       return {
         id: String(m.id ?? m.name ?? m.model),
         name: m.name && m.name !== m.id ? String(m.name) : undefined,
         contextLength: m.context_length ?? m.top_provider?.context_length ?? m.max_context_length ?? undefined,
+        maxOutput: maxOutput > 0 ? maxOutput : undefined,
         pricing,
       };
     })
@@ -171,7 +173,9 @@ export async function* streamChat(req: ChatRequest): AsyncGenerator<StreamEvent>
       }
     }
   } finally {
-    reader.releaseLock();
+    // Auch bei vorzeitigem Ende (Wortgrenze erreicht, Fehler) die Verbindung schließen,
+    // damit der Anbieter aufhört zu generieren und nicht weiter abrechnet.
+    await reader.cancel().catch(() => {});
   }
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen, Bot, ChevronDown, Eye, FileText, Layers, ListTree, NotebookPen, Plus, Search, Sparkles, StickyNote, X } from 'lucide-react';
+import { BookOpen, Bot, Brain, ChevronDown, Eye, FileText, Layers, ListTree, NotebookPen, Plus, Search, Sparkles, StickyNote, X } from 'lucide-react';
 import {
   codexTypeLabel,
   collectPromptInputs,
@@ -593,6 +593,77 @@ export function PreviewContent({ data }: { data: PreviewResult & { params?: Reco
           <pre className="max-h-96 overflow-auto p-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{m.content}</pre>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Nachdenken des Modells (Reasoning). Nur wenn in den Einstellungen eingeschaltet, in einem eigenen Kasten –
+ * es gehört nicht zum generierten Text und kommt beim Übernehmen nie in den Roman.
+ * Während des Streamens aufgeklappt, danach ein kleiner Knopf zum Aufklappen.
+ * Ausgeschaltet bleibt nur der Hinweis „Modell denkt nach …“, solange noch kein Text da ist.
+ */
+export function ReasoningBox({ reasoning, text, streaming, className }: { reasoning: string; text: string; streaming: boolean; className?: string }) {
+  const { data: settings } = useSettings();
+  // null = automatisch (offen, solange gestreamt wird); sonst hat man selbst auf- oder zugeklappt
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const wasStreaming = useRef(streaming);
+  useEffect(() => {
+    if (streaming && !wasStreaming.current) setToggled(null); // neue Generierung
+    wasStreaming.current = streaming;
+  }, [streaming]);
+  const open = toggled ?? streaming;
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // dem Stream folgen, solange nicht hochgescrollt wurde
+  const follow = useRef(true);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (el && streaming && follow.current) el.scrollTop = el.scrollHeight;
+  }, [reasoning, streaming, open]);
+
+  if (!reasoning) return null;
+  const thinking = streaming && !text;
+  if (!settings?.showReasoning) return thinking ? <div className={cn('text-xs text-stone-400 italic', className)}>{t('Model is thinking…')}</div> : null;
+  const label = thinking ? t('Model is thinking…') : t('The model’s thinking');
+  // Buttons statt <details>: Klicks auf Buttons lässt der Editor in Node-Views (Beat) durch
+  if (!open) {
+    return (
+      <div className={className}>
+        <button
+          type="button"
+          onClick={() => setToggled(true)}
+          title={t('not part of the text')}
+          className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-stone-300 px-2 py-0.5 font-sans text-xs text-stone-500 select-none hover:bg-stone-50 hover:text-stone-700 dark:border-stone-700 dark:text-stone-400 dark:hover:bg-stone-900 dark:hover:text-stone-200"
+        >
+          <Brain className={cn('size-3.5 shrink-0', thinking && 'animate-pulse')} />
+          {label}
+          <ChevronDown className="size-3.5 shrink-0 -rotate-90" />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className={cn('rounded-md border border-dashed border-stone-300 bg-stone-50 font-sans text-xs dark:border-stone-700 dark:bg-stone-950/60', className)}>
+      <button
+        type="button"
+        onClick={() => setToggled(false)}
+        className="flex w-full items-center gap-1.5 px-2 py-1 text-left text-stone-500 select-none hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200"
+      >
+        <Brain className={cn('size-3.5 shrink-0', thinking && 'animate-pulse')} />
+        <span className="font-medium">{label}</span>
+        <span className="truncate text-stone-400">· {t('not part of the text')}</span>
+        <ChevronDown className="ml-auto size-3.5 shrink-0" />
+      </button>
+      <div
+        ref={bodyRef}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+        }}
+        className="max-h-48 overflow-y-auto border-t border-dashed border-stone-300 px-2 py-1.5 leading-relaxed whitespace-pre-wrap text-stone-500 italic dark:border-stone-700 dark:text-stone-400"
+      >
+        {reasoning}
+      </div>
     </div>
   );
 }

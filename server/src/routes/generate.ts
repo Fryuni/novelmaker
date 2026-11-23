@@ -24,7 +24,7 @@ export function registerGenerateRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post<{ Body: Req }>('/api/preview', async (req): Promise<PreviewResult & { params?: Record<string, unknown> }> => {
     const body = withChatHistory(ctx, req.body);
     const prep = prepareRender(db, body);
-    const params = body.model ? buildParams(db, body.model, prep, body.params) : undefined;
+    const params = body.model ? buildParams(db, body.model, prep, body.params).params : undefined;
     return {
       messages: prep.result.messages,
       warnings: prep.result.warnings,
@@ -39,7 +39,7 @@ export function registerGenerateRoutes(app: FastifyInstance, ctx: AppContext) {
   app.post<{ Body: Req }>('/api/estimate', async (req): Promise<EstimateResult> => {
     const body = withChatHistory(ctx, req.body);
     const prep = prepareRender(db, body);
-    const params = body.model ? buildParams(db, body.model, prep, body.params) : {};
+    const params = body.model ? buildParams(db, body.model, prep, body.params).params : {};
     return { ...estimateGeneration(db, body, prep, params), warnings: prep.result.warnings };
   });
 
@@ -50,7 +50,7 @@ export function registerGenerateRoutes(app: FastifyInstance, ctx: AppContext) {
     const provider = getProvider(db, body.model.providerId);
     const prep = prepareRender(db, body);
     if (!prep.result.messages.length) throw new HttpError(400, t('The prompt doesn’t produce any messages.'));
-    const params = buildParams(db, body.model, prep, body.params);
+    const { params, outputLimit } = buildParams(db, body.model, prep, body.params);
 
     reply.hijack();
     const sse = new SseWriter(reply.raw);
@@ -61,6 +61,7 @@ export function registerGenerateRoutes(app: FastifyInstance, ctx: AppContext) {
       modelId: body.model.modelId,
       messages: prep.result.messages,
       params,
+      outputLimit,
       log: { novelId: body.novelId, promptId: prep.prompt.id, promptName: prep.prompt.name, kind: body.kind },
       signal: sse.abort.signal,
       onEvent: (ev) => {

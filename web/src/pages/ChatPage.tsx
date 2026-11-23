@@ -25,6 +25,7 @@ import {
   ModelPicker,
   PreviewModal,
   PromptPicker,
+  ReasoningBox,
   useCostEstimate,
   useDefaultModel,
   usePromptInputs,
@@ -118,7 +119,7 @@ function ChatView({ novelId, threadId }: { novelId: string; threadId: string }) 
   const defModel = useDefaultModel();
   const [thread, setThread] = useState<ChatThread | null>(null);
   const [text, setText] = useState('');
-  const [streaming, setStreaming] = useState<{ text: string; user: string | null } | null>(null);
+  const [streaming, setStreaming] = useState<{ text: string; reasoning: string; user: string | null } | null>(null);
   const [warnings, setWarnings] = useState<{ level: string; message: string }[]>([]);
   const [preview, setPreview] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -171,7 +172,7 @@ function ChatView({ novelId, threadId }: { novelId: string; threadId: string }) 
     if (!thread.model) return toast.error(t('Please choose a model.'));
     const controller = new AbortController();
     abortRef.current = controller;
-    setStreaming({ text: '', user: regenerate ? null : content });
+    setStreaming({ text: '', reasoning: '', user: regenerate ? null : content });
     if (!regenerate) setText('');
     try {
       await streamSSE(
@@ -180,6 +181,7 @@ function ChatView({ novelId, threadId }: { novelId: string; threadId: string }) 
         {
           onEvent: (ev, d) => {
             if (ev === 'delta') setStreaming((s) => (s ? { ...s, text: s.text + d.text } : s));
+            else if (ev === 'reasoning') setStreaming((s) => (s ? { ...s, reasoning: s.reasoning + d.text } : s));
             else if (ev === 'meta') {
               setWarnings((d.warnings ?? []).filter((w: { level: string }) => w.level !== 'info'));
               if (d.threadTitle) queryClient.invalidateQueries({ queryKey: keys.chats(novelId) });
@@ -215,8 +217,9 @@ function ChatView({ novelId, threadId }: { novelId: string; threadId: string }) 
           ))}
           {streaming && (
             <>
-              {streaming.user && <Bubble m={{ id: 'u', threadId, role: 'user', content: streaming.user, createdAt: '', model: null, logId: null }} novelId={novelId} threadId={threadId} busy />}
+              {streaming.user && <Bubble m={{ id: 'u', threadId, role: 'user', content: streaming.user, createdAt: '', model: null, logId: null, reasoning: '' }} novelId={novelId} threadId={threadId} busy />}
               <div className="rounded-xl bg-white px-4 py-3 shadow-sm dark:bg-stone-900">
+                <ReasoningBox reasoning={streaming.reasoning} text={streaming.text} streaming className="mb-2" />
                 <Markdown text={streaming.text} caret className="text-[15px] leading-relaxed" />
               </div>
             </>
@@ -301,7 +304,10 @@ function Bubble({ m, novelId, threadId, isLast, onRegenerate, busy }: { m: ChatM
         {user ? (
           <div className="text-[15px] leading-relaxed whitespace-pre-wrap">{m.content}</div>
         ) : (
-          <Markdown text={m.content} className="text-[15px] leading-relaxed" />
+          <>
+            <ReasoningBox reasoning={m.reasoning ?? ''} text={m.content} streaming={false} className="mb-2" />
+            <Markdown text={m.content} className="text-[15px] leading-relaxed" />
+          </>
         )}
         {m.id !== 'u' && (
           <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">

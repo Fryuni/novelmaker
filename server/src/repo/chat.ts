@@ -23,6 +23,7 @@ const rowToMessage = (r: Row): ChatMessage => ({
   createdAt: r.created_at,
   model: r.model ?? null,
   logId: r.log_id ?? null,
+  reasoning: r.reasoning ?? '',
 });
 
 export function listThreads(db: DB, novelId: string): ChatThread[] {
@@ -63,9 +64,13 @@ export function listMessages(db: DB, threadId: string): ChatMessage[] {
   return (db.prepare('SELECT * FROM chat_messages WHERE thread_id = ? ORDER BY created_at, rowid').all(threadId) as Row[]).map(rowToMessage);
 }
 
-export function addMessage(db: DB, threadId: string, data: { role: ChatMessage['role']; content: string; model?: string | null; logId?: string | null }): ChatMessage {
+export function addMessage(
+  db: DB,
+  threadId: string,
+  data: { role: ChatMessage['role']; content: string; model?: string | null; logId?: string | null; reasoning?: string },
+): ChatMessage {
   const id = newId();
-  db.prepare('INSERT INTO chat_messages (id, thread_id, role, content, created_at, model, log_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+  db.prepare('INSERT INTO chat_messages (id, thread_id, role, content, created_at, model, log_id, reasoning) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
     id,
     threadId,
     data.role,
@@ -73,6 +78,7 @@ export function addMessage(db: DB, threadId: string, data: { role: ChatMessage['
     now(),
     data.model ?? null,
     data.logId ?? null,
+    data.reasoning ?? '',
   );
   db.prepare('UPDATE chat_threads SET updated_at = ? WHERE id = ?').run(now(), threadId);
   return rowToMessage(db.prepare('SELECT * FROM chat_messages WHERE id = ?').get(id) as Row);

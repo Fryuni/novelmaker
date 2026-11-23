@@ -197,17 +197,14 @@ export class JobManager {
         if (job.abort.signal.aborted) break;
         job.step = task.label;
         const prep = renderTask(db, o, task);
-        const params = buildParams(db, o.model, prep, undefined);
-        if (params.max_tokens == null) {
-          const len = inputNumber(prep.prompt, prep.components, prep.inputs, LENGTH_OPTION_NAMES);
-          if (len) params.max_tokens = Math.round(len * 2 + 300);
-        }
+        const { params, outputLimit } = buildParams(db, o.model, prep, undefined, { lengthNames: LENGTH_OPTION_NAMES });
         const res = await runGeneration({
           db,
           provider,
           modelId: o.model.modelId,
           messages: prep.result.messages,
           params,
+          outputLimit,
           log: { novelId: o.novelId, promptId: prep.prompt.id, promptName: prep.prompt.name, kind: `summary-${task.kind}` },
           signal: job.abort.signal,
         });

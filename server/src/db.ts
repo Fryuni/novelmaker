@@ -170,7 +170,8 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   content TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   model TEXT,
-  log_id TEXT
+  log_id TEXT,
+  reasoning TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_chat_messages_thread ON chat_messages(thread_id);
 CREATE TABLE IF NOT EXISTS generation_logs (
@@ -190,7 +191,8 @@ CREATE TABLE IF NOT EXISTS generation_logs (
   cost REAL,
   duration_ms INTEGER,
   status TEXT NOT NULL DEFAULT 'running',
-  error TEXT
+  error TEXT,
+  reasoning TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_logs_created ON generation_logs(created_at);
 CREATE TABLE IF NOT EXISTS settings (
@@ -256,6 +258,9 @@ function migrate(db: DB) {
   const hasColumn = (table: string, col: string) => (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === col);
   if (!hasColumn('snippets', 'pinned')) db.exec('ALTER TABLE snippets ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
   if (!hasColumn('prompts', 'blocks')) db.exec('ALTER TABLE prompts ADD COLUMN blocks TEXT');
+  // Nachdenken von Reasoning-Modellen (zum Nachlesen, wird nie an das Modell zurückgeschickt)
+  if (!hasColumn('generation_logs', 'reasoning')) db.exec("ALTER TABLE generation_logs ADD COLUMN reasoning TEXT NOT NULL DEFAULT ''");
+  if (!hasColumn('chat_messages', 'reasoning')) db.exec("ALTER TABLE chat_messages ADD COLUMN reasoning TEXT NOT NULL DEFAULT ''");
   if (!hasColumn('prompts', 'lang')) {
     // Prompts je Sprache: die bisherigen Inhalte werden zur deutschen Fassung (die Oberfläche war bis dahin deutsch)
     db.exec("ALTER TABLE prompts ADD COLUMN lang TEXT NOT NULL DEFAULT 'de'");

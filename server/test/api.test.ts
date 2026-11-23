@@ -16,6 +16,28 @@ let app: FastifyInstance;
 let llm: Server;
 let llmUrl = '';
 let lastLlmBody: any = null;
+/** Ende des letzten Reasoning-Streams: true = der Server hat die Verbindung geschlossen, bevor der Mock fertig war */
+let thinkerClosedEarly: Promise<boolean> = Promise.resolve(false);
+
+const sseData = (j: unknown) => `data: ${JSON.stringify(j)}\n\n`;
+
+/** Reasoning-Modell: erst Nachdenken, dann viel sichtbarer Text – Stück für Stück, damit ein Abbruch auffällt. */
+async function streamThinker(res: import('node:http').ServerResponse, contentChunks: number, finish: string): Promise<boolean> {
+  let closed = false;
+  res.on('close', () => (closed = true));
+  const chunks = [
+    ...Array.from({ length: 30 }, () => ({ delta: { reasoning: 'Ich überlege mir, wie die Szene weitergeht. ' } })),
+    ...Array.from({ length: contentChunks }, () => ({ delta: { content: 'Wort ' } })),
+  ];
+  for (const choice of chunks) {
+    if (closed) return true;
+    res.write(sseData({ choices: [choice] }));
+    await new Promise((r) => setTimeout(r, 1));
+  }
+  res.write(sseData({ choices: [{ delta: {}, finish_reason: finish }] }));
+  res.end('data: [DONE]\n\n');
+  return false;
+}
 
 async function api<T = any>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await app.inject({ method: method as any, url, payload: body as any });
@@ -42,11 +64,21 @@ beforeAll(async () => {
     req.on('end', () => {
       if (req.url?.endsWith('/models')) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ data: [{ id: 'test/model', name: 'Test', context_length: 8000, pricing: { prompt: '0.000001', completion: '0.000002' } }] }));
+        res.end(
+          JSON.stringify({
+            data: [
+              { id: 'test/model', name: 'Test', context_length: 8000, pricing: { prompt: '0.000001', completion: '0.000002' } },
+              { id: 'test/small', name: 'Klein', context_length: 100000, top_provider: { max_completion_tokens: 2000 } },
+            ],
+          }),
+        );
         return;
       }
       lastLlmBody = JSON.parse(body);
       res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      if (lastLlmBody.model === 'test/thinker') return void (thinkerClosedEarly = streamThinker(res, 400, 'stop'));
+      // denkt, bis max_tokens erreicht ist, ohne sichtbaren Text
+      if (lastLlmBody.model === 'test/overthinker') return void (thinkerClosedEarly = streamThinker(res, 0, 'length'));
       const chunks = ['Hallo ', 'Welt. ', '1. Erster Beat\n2. Zweiter Beat'];
       for (const c of chunks) res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: c } }] })}\n\n`);
       res.write(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 20 } })}\n\n`);
@@ -347,10 +379,71 @@ describe('API', () => {
     const done = events.find((e) => e.event === 'done')!;
     expect(done.data.promptTokens).toBe(100);
     expect(done.data.cost).toBeCloseTo(100 * 0.000001 + 20 * 0.000002);
-    expect(lastLlmBody.max_tokens).toBe(400 * 2 + 300);
+    // sichtbare Grenze 400 × 2 + 300 plus Reserve fürs Nachdenken, gedeckelt durchs Kontextfenster (8000)
+    const promptTokens = events[0].data.promptTokens;
+    expect(lastLlmBody.max_tokens).toBe(Math.max(1100, Math.min(1100 + 8000, Math.floor(8000 * 0.95) - promptTokens)));
+    expect(lastLlmBody.max_tokens).toBeGreaterThan(1100);
     expect(lastLlmBody.stream).toBe(true);
     const logs = await api('GET', '/api/logs');
     expect(logs[0].status).toBe('ok');
+  });
+
+  it('„Words“ begrenzt nur den sichtbaren Text – das Nachdenken zählt nicht mit', async () => {
+    const providers = await api('GET', '/api/providers');
+    const prov = providers.find((p: any) => p.name === 'Mock');
+    const prompts: Prompt[] = await api('GET', '/api/prompts');
+    const beat = prompts.find((p) => p.builtinKey === 'beat')!;
+    const generate = async (modelId: string, words: number) => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/generate',
+        payload: { kind: 'beat', promptId: beat.id, model: { providerId: prov.id, modelId }, novelId, sceneId: outline.acts[0].chapters[0].scenes[0].id, message: 'Weiter', textBefore: '', inputs: { Words: String(words) } },
+      });
+      const events = sseEvents(res.body);
+      const text = events
+        .filter((e) => e.event === 'delta')
+        .map((e) => e.data.text)
+        .join('');
+      const reasoning = events
+        .filter((e) => e.event === 'reasoning')
+        .map((e) => e.data.text)
+        .join('');
+      return { text, reasoning, done: events.find((e) => e.event === 'done')!.data };
+    };
+
+    // 10 Wörter → sichtbar höchstens 10 × 2 + 300 = 320 Tokens (≈ 1120 Zeichen); das Nachdenken ist länger
+    const r = await generate('test/thinker', 10);
+    expect(lastLlmBody.max_tokens).toBe(320 + 8000); // Modell unbekannt: keine Deckelung
+    expect(Math.ceil(r.reasoning.length / 3.5)).toBeGreaterThan(320);
+    expect(r.text.startsWith('Wort ')).toBe(true);
+    expect(Math.ceil(r.text.length / 3.5)).toBe(320);
+    expect(r.done.finish).toBe('length');
+    expect(r.done.status).toBe('ok');
+    expect(await thinkerClosedEarly).toBe(true); // Verbindung zum Anbieter beendet
+    // Kostenschätzung ohne Usage vom Anbieter berücksichtigt auch die Denk-Tokens
+    expect(r.done.completionTokens).toBe(Math.ceil(r.text.length / 3.5) + Math.ceil(r.reasoning.length / 3.5));
+    // Nachdenken bleibt im Protokoll nachlesbar, getrennt von der Antwort
+    const log = await api('GET', `/api/logs/${r.done.logId}`);
+    expect(log.reasoning).toBe(r.reasoning);
+    expect(log.response).toBe(r.text);
+
+    // Anbieter bricht bei max_tokens ab, bevor sichtbarer Text kommt → eigener Hinweis
+    const o = await generate('test/overthinker', 10);
+    expect(o.text).toBe('');
+    expect(o.done.finish).toBe('length-reasoning');
+
+    // max_tokens nie über der maximalen Antwortlänge des Modells, aber nie unter der sichtbaren Grenze
+    await api('POST', `/api/providers/${prov.id}/refresh`);
+    await generate('test/small', 10);
+    expect(lastLlmBody.max_tokens).toBe(2000);
+    await generate('test/small', 1000);
+    expect(lastLlmBody.max_tokens).toBe(1000 * 2 + 300);
+
+    // ohne Reserve wie früher
+    await api('PATCH', '/api/settings', { reasoningReserve: 0 });
+    await generate('test/thinker', 10);
+    expect(lastLlmBody.max_tokens).toBe(320);
+    await api('PATCH', '/api/settings', { reasoningReserve: 8000 });
   });
 
   it('schätzt Tokens und Kosten vor dem Generieren', async () => {
@@ -373,10 +466,12 @@ describe('API', () => {
     expect(est.promptTokens).toBeGreaterThan(0);
     expect(est.completionBasis).toBe('words');
     expect(est.completionTokens).toBe(720);
-    expect(est.maxCompletionTokens).toBe(400 * 2 + 300);
+    // inkl. Reserve fürs Nachdenken, gedeckelt durchs Kontextfenster
+    const maxTokens = Math.max(1100, Math.min(1100 + 8000, Math.floor(8000 * 0.95) - est.promptTokens));
+    expect(est.maxCompletionTokens).toBe(maxTokens);
     expect(est.pricing).toEqual({ prompt: 0.000001, completion: 0.000002 });
     expect(est.cost).toBeCloseTo(est.promptTokens * 0.000001 + 720 * 0.000002);
-    expect(est.maxCost).toBeCloseTo(est.promptTokens * 0.000001 + 1100 * 0.000002);
+    expect(est.maxCost).toBeCloseTo(est.promptTokens * 0.000001 + maxTokens * 0.000002);
     expect(est.contextLength).toBe(8000);
     expect(est.local).toBe(false);
     expect(Array.isArray(est.warnings)).toBe(true);
@@ -420,6 +515,22 @@ describe('API', () => {
     await app.inject({ method: 'POST', url: `/api/chats/${thread.id}/send`, payload: { regenerate: true } });
     t = await api('GET', `/api/chats/${thread.id}`);
     expect(t.messages.map((m: any) => m.role)).toEqual(['user', 'assistant']);
+    expect(t.messages[1].reasoning).toBe('');
+  });
+
+  it('Chat: Nachdenken wird an der Antwort gespeichert, aber nicht an das Modell zurückgeschickt', async () => {
+    const providers = await api('GET', '/api/providers');
+    const prov = providers.find((p: any) => p.name === 'Mock');
+    const thread = await api('POST', `/api/novels/${novelId}/chats`, { model: { providerId: prov.id, modelId: 'test/thinker' } });
+    await app.inject({ method: 'POST', url: `/api/chats/${thread.id}/send`, payload: { content: 'Was passiert als Nächstes?' } });
+    const t = await api('GET', `/api/chats/${thread.id}`);
+    const answer = t.messages.find((m: any) => m.role === 'assistant');
+    expect(answer.reasoning).toContain('Ich überlege mir');
+    expect(answer.content).not.toContain('Ich überlege mir');
+    // Folgefrage: Verlauf enthält die Antwort, aber nicht das Nachdenken
+    await app.inject({ method: 'POST', url: `/api/chats/${thread.id}/send`, payload: { content: 'Und dann?' } });
+    expect(lastLlmBody.messages.some((m: any) => m.content.includes('Wort Wort'))).toBe(true);
+    expect(lastLlmBody.messages.some((m: any) => m.content.includes('Ich überlege mir'))).toBe(false);
   });
 
   it('Zusammenfassungs-Job mit Schätzung und Band-Eintrag', async () => {

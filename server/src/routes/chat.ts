@@ -81,7 +81,7 @@ export function registerChatRoutes(app: FastifyInstance, { db }: AppContext) {
       context: thread.context,
       chatHistory: history,
     });
-    const params = buildParams(db, model, prep, body.params);
+    const { params, outputLimit } = buildParams(db, model, prep, body.params);
     const userMsg = body.regenerate ? null : Ch.addMessage(db, thread.id, { role: 'user', content });
     if (!thread.title.trim()) thread = Ch.updateThread(db, thread.id, { title: content.replace(/\s+/g, ' ').slice(0, 60) });
 
@@ -94,6 +94,7 @@ export function registerChatRoutes(app: FastifyInstance, { db }: AppContext) {
       modelId: model.modelId,
       messages: prep.result.messages,
       params,
+      outputLimit,
       log: { novelId: thread.novelId, promptId: prep.prompt.id, promptName: prep.prompt.name, kind: 'chat' },
       signal: sse.abort.signal,
       onEvent: (ev) => {
@@ -108,6 +109,7 @@ export function registerChatRoutes(app: FastifyInstance, { db }: AppContext) {
         content: result.text + (result.status === 'aborted' ? ' …' : ''),
         model: model.modelId,
         logId: result.logId,
+        reasoning: result.reasoning,
       });
     }
     if (result.status === 'error') sse.send('error', { message: result.error, logId: result.logId });

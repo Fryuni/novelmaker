@@ -181,6 +181,7 @@ const rowToLog = (r: Row): GenerationLog => ({
   messages: parseJson(r.messages, []),
   params: parseJson(r.params, {}),
   response: r.response,
+  reasoning: r.reasoning ?? '',
   promptTokens: r.prompt_tokens,
   completionTokens: r.completion_tokens,
   cost: r.cost,
@@ -204,11 +205,20 @@ export function createLog(
 export function finishLog(
   db: DB,
   id: string,
-  data: { response: string; promptTokens: number | null; completionTokens: number | null; cost: number | null; durationMs: number; status: string; error?: string | null },
+  data: {
+    response: string;
+    reasoning?: string;
+    promptTokens: number | null;
+    completionTokens: number | null;
+    cost: number | null;
+    durationMs: number;
+    status: string;
+    error?: string | null;
+  },
 ) {
   db.prepare(
-    'UPDATE generation_logs SET response = ?, prompt_tokens = ?, completion_tokens = ?, cost = ?, duration_ms = ?, status = ?, error = ? WHERE id = ?',
-  ).run(data.response, data.promptTokens, data.completionTokens, data.cost, data.durationMs, data.status, data.error ?? null, id);
+    'UPDATE generation_logs SET response = ?, reasoning = ?, prompt_tokens = ?, completion_tokens = ?, cost = ?, duration_ms = ?, status = ?, error = ? WHERE id = ?',
+  ).run(data.response, data.reasoning ?? '', data.promptTokens, data.completionTokens, data.cost, data.durationMs, data.status, data.error ?? null, id);
   // Log auf 2000 Einträge begrenzen
   db.prepare('DELETE FROM generation_logs WHERE id NOT IN (SELECT id FROM generation_logs ORDER BY created_at DESC LIMIT 2000)').run();
 }

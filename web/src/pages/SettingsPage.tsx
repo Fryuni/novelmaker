@@ -467,7 +467,7 @@ function General() {
           checked={settings.deriveMaxTokens}
           onChange={(v) => set({ deriveMaxTokens: v })}
           label={t('Derive max_tokens from the “Words” input')}
-          hint={t('Only if the model has no max_tokens of its own in the collection. For reasoning models, choose a generous buffer or set max_tokens per model.')}
+          hint={t('Only if the model has no max_tokens of its own in the collection. The visible answer is cut off at words × factor + buffer; the model’s thinking doesn’t count towards this.')}
         />
         <div className="mt-3 grid grid-cols-2 gap-3">
           <Field label={t('Factor (tokens per word)')}>
@@ -476,7 +476,28 @@ function General() {
           <Field label={t('Buffer (tokens)')}>
             <Input type="number" step={100} min={0} value={settings.maxTokensBuffer} onChange={(e) => set({ maxTokensBuffer: Number(e.target.value) || 0 })} />
           </Field>
+          <Field
+            className="col-span-2"
+            label={t('Thinking reserve (tokens)')}
+            hint={t('Added to max_tokens for the provider, because many providers count the thinking of reasoning models towards max_tokens. Only used if the model actually thinks.')}
+          >
+            <Input
+              type="number"
+              step={1000}
+              min={0}
+              value={settings.reasoningReserve}
+              onChange={(e) => set({ reasoningReserve: Math.max(0, Number(e.target.value) || 0) })}
+            />
+          </Field>
         </div>
+      </div>
+      <div className="rounded-lg border border-stone-200 p-4 dark:border-stone-800">
+        <Checkbox
+          checked={settings.showReasoning}
+          onChange={(v) => set({ showReasoning: v })}
+          label={t('Show the model’s thinking')}
+          hint={t('For reasoning models: shows what the model is thinking in a separate box above the answer, e.g. for troubleshooting. It is never inserted into the novel. After accepting, you can still find it in the log.')}
+        />
       </div>
     </div>
   );
@@ -550,6 +571,14 @@ function Logs() {
                 <pre className="max-h-72 overflow-auto p-3 font-mono text-xs whitespace-pre-wrap">{m.content}</pre>
               </div>
             ))}
+            {view.reasoning && (
+              <div className="rounded-lg border border-dashed border-stone-300 dark:border-stone-700">
+                <div className="border-b border-dashed border-stone-300 px-3 py-1 text-xs font-semibold text-stone-500 dark:border-stone-700 dark:text-stone-400">
+                  {t('The model’s thinking')}
+                </div>
+                <pre className="max-h-72 overflow-auto p-3 font-sans text-xs whitespace-pre-wrap text-stone-500 italic dark:text-stone-400">{view.reasoning}</pre>
+              </div>
+            )}
             <div className="rounded-lg border border-amber-200 dark:border-amber-900">
               <div className="border-b border-amber-200 px-3 py-1 text-xs font-semibold dark:border-amber-900">{t('Response')}</div>
               <pre className="max-h-96 overflow-auto p-3 font-serif text-sm whitespace-pre-wrap">{view.response}</pre>

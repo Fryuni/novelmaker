@@ -10,6 +10,7 @@ import {
   ModelPicker,
   PreviewButton,
   PromptPicker,
+  ReasoningBox,
   useCostEstimate,
   useLastSelection,
   useModelLabel,
@@ -140,7 +141,7 @@ export function BeatView({ node, getPos, editor, deleteNode }: NodeViewProps) {
       {gen && (
         <div contentEditable={false} className="border-t border-amber-200/80 bg-white/70 px-3 py-2 dark:border-amber-800/50 dark:bg-stone-900/60">
           <WarningsList warnings={gen.warnings.filter((w) => w.level !== 'info')} />
-          {gen.reasoning && !gen.text && streaming && <div className="mb-1 text-xs text-stone-400 italic">{t('Model is thinking…')}</div>}
+          <ReasoningBox reasoning={gen.reasoning} text={gen.text} streaming={streaming} className="mb-2" />
           <div
             className={cn('font-serif text-[length:var(--editor-font-size)] leading-relaxed whitespace-pre-wrap text-stone-800 dark:text-stone-100', streaming && 'stream-cursor')}
           >
@@ -148,6 +149,9 @@ export function BeatView({ node, getPos, editor, deleteNode }: NodeViewProps) {
           </div>
           {gen.error && <div className="mt-2 rounded bg-red-50 px-2 py-1 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300">{gen.error}</div>}
           {gen.finish === 'length' && <div className="mt-1 text-xs text-amber-700">{t('Cut off (max_tokens reached).')}</div>}
+          {gen.finish === 'length-reasoning' && (
+            <div className="mt-1 text-xs text-amber-700">{t('Cut off: the model used up max_tokens while thinking. Increase the thinking reserve in Settings.')}</div>
+          )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {!streaming && gen.text.trim() && (
               <Button size="sm" variant="primary" icon={<Check className="size-3.5" />} onClick={accept}>
