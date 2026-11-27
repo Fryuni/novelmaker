@@ -112,14 +112,17 @@ export const Beat = Node.create({
     };
   },
   addKeyboardShortcuts() {
+    // setHardBreak verweigert in isolierenden Knoten (Beat, Notiz) – darum den Umbruch direkt einfügen
+    const lineBreak = () => {
+      if (!inBlock(this.editor, 'beat') && !inBlock(this.editor, 'hiddenNote')) return false;
+      return this.editor.chain().insertContent({ type: 'hardBreak' }).scrollIntoView().run();
+    };
     return {
       'Mod-Shift-b': () => this.editor.chain().insertBeat().focus().run(),
       'Mod-Alt-b': () => this.editor.chain().insertBeat().focus().run(),
       'Mod-Alt-n': () => this.editor.chain().insertNote().focus().run(),
-      Enter: () => {
-        if (inBlock(this.editor, 'beat') || inBlock(this.editor, 'hiddenNote')) return this.editor.commands.setHardBreak();
-        return false;
-      },
+      Enter: lineBreak,
+      'Shift-Enter': lineBreak,
       'Mod-Enter': () => {
         const { $from } = this.editor.state.selection;
         for (let d = $from.depth; d > 0; d--) {
